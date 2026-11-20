@@ -40,7 +40,7 @@ La integración trae su propia tarjeta, **MeteoChile**. Se carga sola al instala
 
 1. Abre un panel de control → lápiz (editar) → **Añadir tarjeta**.
 2. Busca **MeteoChile**.
-3. Elige la localidad y lo que quieres mostrar con el editor visual: condición actual, índice UV, humedad/viento/visibilidad, estación, texto del pronóstico por tramo, tipo de pronóstico (diario o día y noche) y cantidad de días.
+3. Elige la localidad y lo que quieres mostrar con el editor visual: condición actual, nombre de la localidad, descripción de la condición, índice UV, humedad/viento/visibilidad, estación, texto del pronóstico por tramo, tipo de pronóstico (diario o día y noche) y cantidad de días.
 
 ![Editor visual](docs/editor.png)
 
@@ -53,6 +53,8 @@ name: Colina            # opcional
 forecast_type: daily    # daily | twice_daily
 days: 5                 # 1 a 5
 show_current: true
+show_name: true         # nombre de la localidad
+show_condition: true    # descripción de la condición ("Nublado")
 show_uv: true
 show_details: true      # humedad, viento, visibilidad
 show_station: true

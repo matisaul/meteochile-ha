@@ -6,7 +6,7 @@
  * Se distribuye junto con la integración y se carga sola en el frontend.
  */
 
-const CARD_VERSION = "0.2.0";
+const CARD_VERSION = "0.2.1";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -95,6 +95,8 @@ const EDITOR_LABELS = {
     entity: "Localidad (entidad weather de MeteoChile)",
     name: "Título (opcional)",
     show_current: "Mostrar condición actual",
+    show_name: "Mostrar nombre de la localidad",
+    show_condition: "Mostrar descripción de la condición",
     show_details: "Mostrar humedad, viento y visibilidad",
     show_uv: "Mostrar índice UV",
     show_station: "Mostrar estación y hora de observación",
@@ -112,6 +114,8 @@ const EDITOR_LABELS = {
     entity: "Location (MeteoChile weather entity)",
     name: "Title (optional)",
     show_current: "Show current conditions",
+    show_name: "Show location name",
+    show_condition: "Show condition description",
     show_details: "Show humidity, wind and visibility",
     show_uv: "Show UV index",
     show_station: "Show station and observation time",
@@ -128,7 +132,9 @@ const EDITOR_LABELS = {
 };
 
 const DEFAULTS = {
+  show_name: true,
   show_current: true,
+  show_condition: true,
   show_details: true,
   show_uv: true,
   show_station: true,
@@ -344,17 +350,17 @@ class MeteoChileCard extends HTMLElement {
         const uvText = Number(a.uv_index) >= 11 ? "11+" : fmtNumber(a.uv_index);
         uvHtml = `<span class="uv" style="--uv-color:${lvl.color}" title="${escapeHtml(lvl.label)}">${s.uv} ${uvText} · ${escapeHtml(lvl.label)}</span>`;
       }
+      const mainParts = [];
+      if (c.show_name) mainParts.push(`<div class="title">${escapeHtml(title)}</div>`);
+      if (c.show_condition) mainParts.push(`<div class="condition">${escapeHtml(conditionLabel(hass, stateObj))}</div>`);
+      if (uvHtml) mainParts.push(uvHtml);
       parts.push(`
-        <div class="current">
+        <div class="current${mainParts.length ? "" : " no-main"}">
           <ha-icon class="big-icon" icon="${conditionIcon(stateObj.state, isNight)}"></ha-icon>
-          <div class="main">
-            <div class="title">${escapeHtml(title)}</div>
-            <div class="condition">${escapeHtml(conditionLabel(hass, stateObj))}</div>
-            ${uvHtml}
-          </div>
+          ${mainParts.length ? `<div class="main">${mainParts.join("")}</div>` : ""}
           <div class="temp">${temp !== null ? `${temp}<span class="unit">${escapeHtml(unit)}</span>` : "—"}</div>
         </div>`);
-    } else {
+    } else if (c.show_name) {
       parts.push(`<div class="title solo">${escapeHtml(title)}</div>`);
     }
 
@@ -418,10 +424,6 @@ class MeteoChileCard extends HTMLElement {
       parts.push(`<div class="meta small">${escapeHtml(s.issued)}: ${escapeHtml(a.pronostico_redactado)}</div>`);
     }
 
-    if (a.attribution) {
-      parts.push(`<div class="attribution">${escapeHtml(a.attribution)}</div>`);
-    }
-
     this._paint(parts.join(""));
   }
 
@@ -442,14 +444,19 @@ class MeteoChileCard extends HTMLElement {
 const STYLE = `
   :host { display: block; }
   ha-card { cursor: pointer; height: 100%; }
-  .card { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .card { padding: 16px; display: flex; flex-direction: column; gap: 12px; container-type: inline-size; }
   .warning { padding: 8px; color: var(--warning-color, #f57c00); }
-  .current { display: flex; align-items: center; gap: 12px; }
+  .current { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "icon main temp"; align-items: center; gap: 4px 12px; }
+  .current.no-main { grid-template-columns: auto 1fr; grid-template-areas: "icon temp"; }
+  .current.no-main .temp { justify-self: end; }
+  .current .big-icon { grid-area: icon; }
+  .current .main { grid-area: main; }
+  .current .temp { grid-area: temp; }
   .big-icon { --mdc-icon-size: 56px; color: var(--state-icon-color, var(--primary-color)); flex: none; }
-  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .title { font-size: 1.2em; font-weight: 500; color: var(--primary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .title.solo { font-size: 1.1em; }
-  .condition { color: var(--secondary-text-color); }
+  .condition { color: var(--secondary-text-color); overflow-wrap: anywhere; }
   .temp { font-size: 2.6em; font-weight: 300; line-height: 1; color: var(--primary-text-color); white-space: nowrap; }
   .temp .unit { font-size: 0.45em; vertical-align: top; margin-left: 2px; color: var(--secondary-text-color); }
   .uv { align-self: flex-start; margin-top: 4px; font-size: 0.8em; padding: 2px 8px; border-radius: 10px;
@@ -463,6 +470,14 @@ const STYLE = `
   .meta { display: flex; align-items: center; gap: 6px; font-size: 0.8em; color: var(--secondary-text-color); }
   .meta ha-icon { --mdc-icon-size: 16px; }
   .meta.small { font-size: 0.75em; }
+  /* Tarjetas angostas: icono y temperatura arriba, nombre y condición abajo. */
+  @container (max-width: 340px) {
+    .current { grid-template-columns: auto 1fr; grid-template-areas: "icon temp" "main main"; }
+    .current .temp { justify-self: end; }
+    .big-icon { --mdc-icon-size: 48px; }
+    .temp { font-size: 2.2em; }
+    .details { grid-template-columns: 1fr; }
+  }
   .forecast { display: flex; justify-content: space-between; gap: 4px; border-top: 1px solid var(--divider-color); padding-top: 12px; }
   .forecast.loading { min-height: 84px; }
   .fday { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -475,7 +490,6 @@ const STYLE = `
   .text { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--divider-color); padding-top: 12px; font-size: 0.85em; color: var(--primary-text-color); }
   .trow { display: grid; grid-template-columns: 90px 1fr; gap: 8px; }
   .tperiod { color: var(--secondary-text-color); }
-  .attribution { font-size: 0.7em; color: var(--secondary-text-color); opacity: 0.8; text-align: right; }
 `;
 
 // ---------------------------------------------------------------------------
@@ -511,6 +525,8 @@ class MeteoChileCardEditor extends HTMLElement {
         expanded: true,
         schema: [
           { name: "show_current", selector: { boolean: {} } },
+          { name: "show_name", selector: { boolean: {} } },
+          { name: "show_condition", selector: { boolean: {} } },
           { name: "show_uv", selector: { boolean: {} } },
           { name: "show_details", selector: { boolean: {} } },
           { name: "show_station", selector: { boolean: {} } },
