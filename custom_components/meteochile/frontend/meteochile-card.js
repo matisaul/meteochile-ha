@@ -6,7 +6,7 @@
  * Se distribuye junto con la integración y se carga sola en el frontend.
  */
 
-const CARD_VERSION = "0.2.1";
+const CARD_VERSION = "0.2.2";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -270,8 +270,38 @@ class MeteoChileCard extends HTMLElement {
     return size;
   }
 
+  // Alto aproximado (px) del contenido según las secciones activas.
+  _estimatedHeight() {
+    const c = this._config || DEFAULTS;
+    const blocks = [];
+    const wide = c.show_forecast || c.show_details || c.show_text;
+    if (c.show_current) {
+      const main = (c.show_name ? 26 : 0) + (c.show_condition ? 22 : 0) + (c.show_uv ? 30 : 0);
+      // Ancha: nombre/condición al lado del icono. Angosta: debajo.
+      blocks.push(wide ? Math.max(56, main) : main ? 56 + 4 + main : 56);
+    }
+    else if (c.show_name) blocks.push(24);
+    if (c.show_details) blocks.push(44);
+    if (c.show_station) blocks.push(18);
+    if (c.show_forecast) blocks.push(96);
+    if (c.show_text) blocks.push(110);
+    if (c.show_issued) blocks.push(18);
+    const content = blocks.reduce((sum, h) => sum + h, 0) + Math.max(blocks.length - 1, 0) * 12;
+    return content + 32; // padding
+  }
+
+  // Vista de secciones: celdas de 56 px con 8 px de separación.
+  // Devuelve filas numéricas para que el tamaño se pueda ajustar a mano.
   getGridOptions() {
-    return { columns: 12, min_columns: 6, rows: "auto" };
+    const c = this._config || DEFAULTS;
+    const rows = Math.max(2, Math.ceil((this._estimatedHeight() + 8) / 64));
+    const wide = c.show_forecast || c.show_details || c.show_text;
+    return {
+      columns: wide ? 12 : 6,
+      rows,
+      min_columns: 3,
+      min_rows: 1,
+    };
   }
 
   _unsubscribe() {
@@ -442,9 +472,9 @@ class MeteoChileCard extends HTMLElement {
 }
 
 const STYLE = `
-  :host { display: block; }
-  ha-card { cursor: pointer; height: 100%; }
-  .card { padding: 16px; display: flex; flex-direction: column; gap: 12px; container-type: inline-size; }
+  :host { display: block; height: 100%; }
+  ha-card { cursor: pointer; height: 100%; box-sizing: border-box; overflow: hidden; }
+  .card { padding: 16px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 12px; container-type: inline-size; }
   .warning { padding: 8px; color: var(--warning-color, #f57c00); }
   .current { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "icon main temp"; align-items: center; gap: 4px 12px; }
   .current.no-main { grid-template-columns: auto 1fr; grid-template-areas: "icon temp"; }
@@ -478,9 +508,25 @@ const STYLE = `
     .temp { font-size: 2.2em; }
     .details { grid-template-columns: 1fr; }
   }
-  .forecast { display: flex; justify-content: space-between; gap: 4px; border-top: 1px solid var(--divider-color); padding-top: 12px; }
+  /* Tarjetas muy angostas (p. ej. 3 columnas en el teléfono). */
+  @container (max-width: 200px) {
+    .current { gap: 4px 8px; }
+    .big-icon { --mdc-icon-size: 36px; }
+    .temp { font-size: 1.8em; }
+    .title { font-size: 1em; }
+    .condition, .uv { font-size: 0.8em; }
+  }
+  /* Mínimo (3 columnas): icono arriba, temperatura abajo, centrados. */
+  @container (max-width: 150px) {
+    .current, .current.no-main { grid-template-columns: 1fr; grid-template-areas: "icon" "temp" "main"; justify-items: center; text-align: center; }
+    .current .temp, .current.no-main .temp { justify-self: center; }
+    .main { align-items: center; }
+    .uv { align-self: center; }
+    .temp { font-size: 1.6em; }
+  }
+  .forecast { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(44px, 1fr); grid-template-rows: auto; gap: 4px; overflow: hidden; border-top: 1px solid var(--divider-color); padding-top: 12px; }
   .forecast.loading { min-height: 84px; }
-  .fday { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .fday { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .fday.night { opacity: 0.8; }
   .fname { font-size: 0.8em; color: var(--secondary-text-color); text-transform: capitalize; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .fday ha-icon { --mdc-icon-size: 30px; color: var(--state-icon-color, var(--primary-color)); }
