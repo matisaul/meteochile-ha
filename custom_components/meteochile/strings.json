@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "MeteoChile: region",
+        "description": "Choose the region. Data comes from the Chilean Meteorological Directorate (DMC) website.",
+        "data": {
+          "region": "Region"
+        }
+      },
+      "city": {
+        "title": "MeteoChile: location",
+        "description": "Locations with a forecast in {region}.",
+        "data": {
+          "city": "Location"
+        }
+      },
+      "station": {
+        "title": "MeteoChile: current temperature",
+        "description": "The DMC publishes current conditions only for airport stations. Pick the one closest to {city}; you can change it later in Options.",
+        "data": {
+          "station": "Station"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not fetch data from meteochile.gob.cl. Try again later."
+    },
+    "abort": {
+      "already_configured": "This location is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Station for current temperature",
+        "data": {
+          "station": "Station"
+        }
+      }
+    }
+  }
+}

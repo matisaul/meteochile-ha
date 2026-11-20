@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "MeteoChile: región",
+        "description": "Elige la región. Los datos vienen del portal de la Dirección Meteorológica de Chile.",
+        "data": {
+          "region": "Región"
+        }
+      },
+      "city": {
+        "title": "MeteoChile: localidad",
+        "description": "Localidades con pronóstico en {region}.",
+        "data": {
+          "city": "Localidad"
+        }
+      },
+      "station": {
+        "title": "MeteoChile: temperatura actual",
+        "description": "La DMC publica la temperatura actual solo para estaciones en aeródromos. Elige la más cercana a {city}; puedes cambiarla después en Opciones.",
+        "data": {
+          "station": "Estación"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No se pudo obtener los datos desde meteochile.gob.cl. Intenta de nuevo más tarde."
+    },
+    "abort": {
+      "already_configured": "Esta localidad ya está configurada."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Estación para la temperatura actual",
+        "data": {
+          "station": "Estación"
+        }
+      }
+    }
+  }
+}
