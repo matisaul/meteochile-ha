@@ -168,3 +168,23 @@ async def test_options_flow(hass, mock_dmc):
     await hass.async_block_till_done()
     state = hass.states.get("weather.meteochile_colina")
     assert float(state.attributes["temperature"]) == 16.1
+
+
+async def test_card_registered(hass, mock_dmc, hass_client):
+    from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
+    from homeassistant.setup import async_setup_component
+
+    assert await async_setup_component(hass, "http", {})
+    entry = _entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    urls = hass.data[DATA_EXTRA_MODULE_URL].urls
+    assert any(u.startswith("/meteochile/meteochile-card.js?v=") for u in urls)
+
+    client = await hass_client()
+    resp = await client.get("/meteochile/meteochile-card.js")
+    assert resp.status == 200
+    body = await resp.text()
+    assert "registry.define(\"meteochile-card\", MeteoChileCard)" in body

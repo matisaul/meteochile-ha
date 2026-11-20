@@ -4,10 +4,24 @@ from __future__ import annotations
 
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
+from homeassistant.loader import async_get_integration
 
+from .const import DOMAIN
 from .coordinator import MeteoChileConfigEntry, MeteoChileCoordinator
+from .frontend import async_register_card
 
 PLATFORMS: list[Platform] = [Platform.WEATHER]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Registra la tarjeta del dashboard (una vez por arranque)."""
+    integration = await async_get_integration(hass, DOMAIN)
+    await async_register_card(hass, str(integration.version or "0"))
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: MeteoChileConfigEntry) -> bool:

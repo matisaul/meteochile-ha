@@ -32,6 +32,37 @@ Copia `custom_components/meteochile` a la carpeta `config/custom_components/` de
 
 Puedes agregar la integración varias veces, una por localidad.
 
+## Tarjeta para el panel de control
+
+La integración trae su propia tarjeta, **MeteoChile**. Se carga sola al instalar la integración, sin instalar nada más.
+
+![Tarjeta MeteoChile](docs/tarjeta.png)
+
+1. Abre un panel de control → lápiz (editar) → **Añadir tarjeta**.
+2. Busca **MeteoChile**.
+3. Elige la localidad y lo que quieres mostrar con el editor visual: condición actual, índice UV, humedad/viento/visibilidad, estación, texto del pronóstico por tramo, tipo de pronóstico (diario o día y noche) y cantidad de días.
+
+![Editor visual](docs/editor.png)
+
+También se puede escribir en YAML:
+
+```yaml
+type: custom:meteochile-card
+entity: weather.meteochile_colina
+name: Colina            # opcional
+forecast_type: daily    # daily | twice_daily
+days: 5                 # 1 a 5
+show_current: true
+show_uv: true
+show_details: true      # humedad, viento, visibilidad
+show_station: true
+show_forecast: true
+show_text: false        # texto del pronóstico de hoy por tramo
+show_issued: false      # hora de emisión del pronóstico
+```
+
+Si no ves la tarjeta después de actualizar, recarga el navegador sin caché (Ctrl+F5).
+
 ## Limitaciones
 
 - La DMC **no tiene una API pública** para esto. La integración lee los mismos archivos `.js` que usa el sitio web. Si la DMC cambia su formato o sus rutas, la integración puede dejar de funcionar hasta que se actualice.

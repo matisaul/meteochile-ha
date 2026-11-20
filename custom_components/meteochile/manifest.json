@@ -1,14 +1,21 @@
 {
   "domain": "meteochile",
   "name": "MeteoChile (DMC)",
-  "codeowners": ["@matisaul"],
+  "codeowners": [
+    "@matisaul"
+  ],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": [
+    "frontend",
+    "http"
+  ],
   "documentation": "https://github.com/matisaul/meteochile-ha",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/matisaul/meteochile-ha/issues",
-  "loggers": ["custom_components.meteochile"],
+  "loggers": [
+    "custom_components.meteochile"
+  ],
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }
