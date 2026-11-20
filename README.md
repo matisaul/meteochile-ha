@@ -42,7 +42,7 @@ Puedes agregar la integración varias veces, una por localidad.
 
 ## Publicar en HACS
 
-- **Como repositorio personalizado** (lo más rápido): sube el repositorio a GitHub, crea un *release* (por ejemplo `v0.1.0`).
+- **Como repositorio personalizado** (lo más rápido): basta con agregar la URL en HACS; idealmente crea un *release* (por ejemplo `v0.1.0`).
 - **En la lista por defecto de HACS**: además necesitas que la acción `Validar` pase (hassfest + HACS) y que el repositorio tenga descripción y *topics*. Después se envía un PR a [hacs/default](https://github.com/hacs/default).
 
 ### Logo
