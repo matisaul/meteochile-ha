@@ -6,7 +6,7 @@
  * Se distribuye junto con la integración y se carga sola en el frontend.
  */
 
-const CARD_VERSION = "0.2.2";
+const CARD_VERSION = "0.3.0";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -109,6 +109,15 @@ const EDITOR_LABELS = {
     twice_daily: "Día y noche",
     sections: "Secciones",
     forecast: "Pronóstico",
+    icon_actions: "Acción de toque en el ícono",
+    card_actions: "Acción de toque en la tarjeta",
+    icon_tap_action: "Comportamiento del toque",
+    icon_double_tap_action: "Comportamiento de doble toque",
+    icon_hold_action: "Comportamiento de mantener pulsado",
+    tap_action: "Comportamiento del toque",
+    double_tap_action: "Comportamiento de doble toque",
+    hold_action: "Comportamiento de mantener pulsado",
+    icon_actions_help: "Si no configuras acciones para el ícono, usa las de la tarjeta.",
   },
   en: {
     entity: "Location (MeteoChile weather entity)",
@@ -128,6 +137,15 @@ const EDITOR_LABELS = {
     twice_daily: "Day and night",
     sections: "Sections",
     forecast: "Forecast",
+    icon_actions: "Icon tap action",
+    card_actions: "Card tap action",
+    icon_tap_action: "Tap behavior",
+    icon_double_tap_action: "Double tap behavior",
+    icon_hold_action: "Hold behavior",
+    tap_action: "Tap behavior",
+    double_tap_action: "Double tap behavior",
+    hold_action: "Hold behavior",
+    icon_actions_help: "If no icon actions are set, the card actions are used.",
   },
 };
 
@@ -205,6 +223,96 @@ function dayLabel(iso, hass, index, forecastType, isDaytime) {
   }
   if (sameDay) return s.today;
   return date.toLocaleDateString(lang(hass) === "es" ? "es-CL" : "en-US", { weekday: "short", day: "numeric" });
+}
+
+// ---------------------------------------------------------------------------
+// Acciones (toque, doble toque, mantener pulsado)
+// ---------------------------------------------------------------------------
+
+const HOLD_MS = 500;
+const DOUBLE_TAP_MS = 250;
+const MOVE_TOLERANCE = 10;
+
+const hasAction = (action) => !!action && action.action && action.action !== "none";
+
+/**
+ * Detecta toque, doble toque y mantener pulsado sobre un elemento y llama a
+ * onAction("tap" | "double_tap" | "hold"). Con stopPropagation, el gesto no
+ * llega a la tarjeta (para que el ícono tenga acciones propias).
+ */
+function bindActions(element, { onAction, hasDoubleTap, stopPropagation }) {
+  let holdTimer = null;
+  let held = false;
+  let start = null;
+  let tapTimer = null;
+  let pendingTap = false;
+
+  const clearHold = () => {
+    if (holdTimer) clearTimeout(holdTimer);
+    holdTimer = null;
+  };
+
+  element.addEventListener("pointerdown", (ev) => {
+    if (stopPropagation) ev.stopPropagation();
+    if (ev.button !== undefined && ev.button !== 0) return;
+    held = false;
+    start = { x: ev.clientX, y: ev.clientY };
+    clearHold();
+    holdTimer = setTimeout(() => {
+      held = true;
+      holdTimer = null;
+      onAction("hold");
+    }, HOLD_MS);
+  });
+
+  element.addEventListener("pointermove", (ev) => {
+    if (!start || !holdTimer) return;
+    if (Math.abs(ev.clientX - start.x) > MOVE_TOLERANCE || Math.abs(ev.clientY - start.y) > MOVE_TOLERANCE) {
+      clearHold();
+      start = null; // es un desplazamiento, no un toque
+    }
+  });
+
+  const cancel = () => {
+    clearHold();
+    start = null;
+  };
+  element.addEventListener("pointercancel", cancel);
+  element.addEventListener("pointerleave", (ev) => {
+    if (ev.pointerType === "mouse") cancel();
+  });
+
+  element.addEventListener("pointerup", (ev) => {
+    if (stopPropagation) ev.stopPropagation();
+    const wasTap = !!start && !held;
+    clearHold();
+    start = null;
+    if (!wasTap) return;
+    if (!hasDoubleTap()) {
+      onAction("tap");
+      return;
+    }
+    if (pendingTap) {
+      clearTimeout(tapTimer);
+      pendingTap = false;
+      onAction("double_tap");
+      return;
+    }
+    pendingTap = true;
+    tapTimer = setTimeout(() => {
+      pendingTap = false;
+      onAction("tap");
+    }, DOUBLE_TAP_MS);
+  });
+
+  // Evita el menú contextual al mantener pulsado en el teléfono.
+  element.addEventListener("contextmenu", (ev) => {
+    ev.preventDefault();
+    if (stopPropagation) ev.stopPropagation();
+  });
+  element.addEventListener("click", (ev) => {
+    if (stopPropagation) ev.stopPropagation();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -457,15 +565,60 @@ class MeteoChileCard extends HTMLElement {
     this._paint(parts.join(""));
   }
 
+  // Acciones efectivas. Tarjeta: toque = más información por defecto.
+  // Ícono: si no tiene acciones propias, usa las de la tarjeta.
+  _actions(target) {
+    const c = this._config || {};
+    const card = {
+      tap_action: c.tap_action || { action: "more-info" },
+      double_tap_action: c.double_tap_action || { action: "none" },
+      hold_action: c.hold_action || { action: "none" },
+    };
+    if (target !== "icon") return card;
+    const own = c.icon_tap_action || c.icon_double_tap_action || c.icon_hold_action;
+    if (!own) return card;
+    return {
+      tap_action: c.icon_tap_action || { action: "none" },
+      double_tap_action: c.icon_double_tap_action || { action: "none" },
+      hold_action: c.icon_hold_action || { action: "none" },
+    };
+  }
+
+  _runAction(target, gesture) {
+    const actions = this._actions(target);
+    const action = actions[`${gesture}_action`];
+    if (!hasAction(action)) return;
+    const config = { entity: this._config.entity, ...actions };
+    // El frontend de Home Assistant ejecuta la acción (más información,
+    // navegar, URL, llamar acción, alternar, asistente, confirmación...).
+    const event = new Event("hass-action", { bubbles: true, composed: true });
+    event.detail = { config, action: gesture };
+    this.dispatchEvent(event);
+  }
+
   _paint(inner) {
     this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card><div class="card">${inner}</div></ha-card>`;
     const card = this.shadowRoot.querySelector("ha-card");
-    if (card && this._config && this._config.entity) {
-      card.addEventListener("click", (ev) => {
-        if (ev.target.closest && ev.target.closest("a")) return;
-        const event = new Event("hass-more-info", { bubbles: true, composed: true });
-        event.detail = { entityId: this._config.entity };
-        this.dispatchEvent(event);
+    if (!card || !this._config || !this._config.entity) return;
+
+    const cardActions = this._actions("card");
+    const cardActive = Object.values(cardActions).some(hasAction);
+    card.classList.toggle("actionable", cardActive);
+    bindActions(card, {
+      onAction: (gesture) => this._runAction("card", gesture),
+      hasDoubleTap: () => hasAction(this._actions("card").double_tap_action),
+      stopPropagation: false,
+    });
+
+    const icon = this.shadowRoot.querySelector(".big-icon");
+    const c = this._config;
+    if (icon && (c.icon_tap_action || c.icon_double_tap_action || c.icon_hold_action)) {
+      const iconActive = Object.values(this._actions("icon")).some(hasAction);
+      icon.classList.toggle("actionable", iconActive);
+      bindActions(icon, {
+        onAction: (gesture) => this._runAction("icon", gesture),
+        hasDoubleTap: () => hasAction(this._actions("icon").double_tap_action),
+        stopPropagation: true,
       });
     }
   }
@@ -473,7 +626,7 @@ class MeteoChileCard extends HTMLElement {
 
 const STYLE = `
   :host { display: block; height: 100%; }
-  ha-card { cursor: pointer; height: 100%; box-sizing: border-box; overflow: hidden; }
+  ha-card { height: 100%; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; box-sizing: border-box; overflow: hidden; }
   .card { padding: 16px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 12px; container-type: inline-size; }
   .warning { padding: 8px; color: var(--warning-color, #f57c00); }
   .current { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "icon main temp"; align-items: center; gap: 4px 12px; }
@@ -482,6 +635,9 @@ const STYLE = `
   .current .big-icon { grid-area: icon; }
   .current .main { grid-area: main; }
   .current .temp { grid-area: temp; }
+  ha-card.actionable, .big-icon.actionable { cursor: pointer; }
+  .big-icon.actionable { border-radius: 50%; transition: transform 0.1s; }
+  .big-icon.actionable:active { transform: scale(0.92); }
   .big-icon { --mdc-icon-size: 56px; color: var(--state-icon-color, var(--primary-color)); flex: none; }
   .main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .title { font-size: 1.2em; font-weight: 500; color: var(--primary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -603,6 +759,28 @@ class MeteoChileCardEditor extends HTMLElement {
           { name: "days", selector: { number: { min: 1, max: 5, step: 1, mode: "slider" } } },
         ],
       },
+      {
+        type: "expandable",
+        name: "",
+        title: l.icon_actions,
+        icon: "mdi:gesture-tap",
+        schema: [
+          { name: "icon_tap_action", selector: { ui_action: { default_action: "none" } } },
+          { name: "icon_double_tap_action", selector: { ui_action: { default_action: "none" } } },
+          { name: "icon_hold_action", selector: { ui_action: { default_action: "none" } } },
+        ],
+      },
+      {
+        type: "expandable",
+        name: "",
+        title: l.card_actions,
+        icon: "mdi:gesture-tap-box",
+        schema: [
+          { name: "tap_action", selector: { ui_action: { default_action: "more-info" } } },
+          { name: "double_tap_action", selector: { ui_action: { default_action: "none" } } },
+          { name: "hold_action", selector: { ui_action: { default_action: "none" } } },
+        ],
+      },
     ];
   }
 
@@ -611,6 +789,8 @@ class MeteoChileCardEditor extends HTMLElement {
     if (!this._form) {
       this._form = document.createElement("ha-form");
       this._form.computeLabel = (schema) => this._labels()[schema.name] || schema.name;
+      this._form.computeHelper = (schema) =>
+        schema.name === "icon_tap_action" ? this._labels().icon_actions_help : undefined;
       this._form.addEventListener("value-changed", (ev) => {
         ev.stopPropagation();
         const value = { ...ev.detail.value };
@@ -619,6 +799,9 @@ class MeteoChileCardEditor extends HTMLElement {
           if (value[key] === def) delete value[key];
         }
         if (!value.name) delete value.name;
+        for (const key of ["tap_action", "double_tap_action", "hold_action", "icon_tap_action", "icon_double_tap_action", "icon_hold_action"]) {
+          if (value[key] === undefined || value[key] === null) delete value[key];
+        }
         const { entity, ...rest } = value;
         this._config = { type: this._config.type, entity, ...rest };
         this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));

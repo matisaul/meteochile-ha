@@ -63,6 +63,25 @@ show_text: false        # texto del pronóstico de hoy por tramo
 show_issued: false      # hora de emisión del pronóstico
 ```
 
+### Acciones al tocar
+
+Como en otras tarjetas de Home Assistant, puedes elegir qué pasa al **tocar**, **tocar dos veces** o **mantener pulsado**, por separado para el ícono y para el resto de la tarjeta. Las acciones disponibles son las estándar: más información, navegar, abrir URL, ejecutar una acción, asistente, etc.
+
+```yaml
+tap_action:               # tarjeta (por defecto: más información)
+  action: more-info
+hold_action:
+  action: navigate
+  navigation_path: /lovelace/clima
+icon_tap_action:          # ícono (si no se define, usa las de la tarjeta)
+  action: perform-action
+  perform_action: script.turn_on
+  target:
+    entity_id: script.regar_jardin
+```
+
+Opciones: `tap_action`, `double_tap_action`, `hold_action`, `icon_tap_action`, `icon_double_tap_action`, `icon_hold_action`.
+
 Si no ves la tarjeta después de actualizar, recarga el navegador sin caché (Ctrl+F5).
 
 ## Limitaciones
