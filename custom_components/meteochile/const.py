@@ -16,7 +16,12 @@ ATTRIBUTION: Final = "Datos: Dirección Meteorológica de Chile (meteochile.gob.
 MANUFACTURER: Final = "Dirección Meteorológica de Chile"
 TIMEZONE: Final = "America/Santiago"
 
-UPDATE_INTERVAL: Final = timedelta(minutes=20)
+# La DMC publica las observaciones de cada estación una vez por hora (METAR)
+# y regenera condicionactual.js unos minutos después (~hh:12, hh:33, hh:51).
+# Se revisa ese archivo (pequeño, ~4 KB) cada 5 minutos para mostrar el dato
+# nuevo poco después de publicado; el pronóstico cambia 1-2 veces al día.
+UPDATE_INTERVAL: Final = timedelta(minutes=5)
+FORECAST_INTERVAL: Final = timedelta(minutes=30)
 REQUEST_TIMEOUT: Final = 20
 
 CONF_REGION: Final = "region"

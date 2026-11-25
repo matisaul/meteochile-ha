@@ -55,31 +55,33 @@ class MeteoChileClient:
         except (TimeoutError, aiohttp.ClientError) as err:
             raise MeteoChileError(f"Error al descargar {url}: {err}") from err
 
-    async def async_get_data(self) -> MeteoChileData:
-        """Descarga todo. Solo el pronóstico es obligatorio."""
-        forecast_txt, current_txt, uv_txt = await asyncio.gather(
-            self._get(URL_FORECAST),
-            self._get(URL_CURRENT),
-            self._get(URL_UV),
-            return_exceptions=True,
+    async def async_get_forecast(self) -> tuple[dict[str, CityForecast], dict[str, float]]:
+        """Pronóstico (obligatorio) e índice UV (opcional)."""
+        forecast_txt, uv_txt = await asyncio.gather(
+            self._get(URL_FORECAST), self._get(URL_UV), return_exceptions=True
         )
         if isinstance(forecast_txt, BaseException):
             raise MeteoChileError(str(forecast_txt)) from forecast_txt
-
         forecasts = parse_forecast(forecast_txt)
         if not forecasts:
             raise MeteoChileError("El archivo de pronóstico no trae localidades")
-
-        data = MeteoChileData(forecasts=forecasts)
-
-        if isinstance(current_txt, BaseException):
-            _LOGGER.debug("Sin condición actual: %s", current_txt)
-        else:
-            data.stations, data.stations_updated = parse_current(current_txt)
-
+        uv: dict[str, float] = {}
         if isinstance(uv_txt, BaseException):
             _LOGGER.debug("Sin índice UV: %s", uv_txt)
         else:
-            data.uv = parse_uv(uv_txt)
+            uv = parse_uv(uv_txt)
+        return forecasts, uv
 
+    async def async_get_current(self) -> tuple[dict[str, StationObservation], str | None]:
+        """Observaciones actuales de las estaciones."""
+        return parse_current(await self._get(URL_CURRENT))
+
+    async def async_get_data(self) -> MeteoChileData:
+        """Descarga todo. Solo el pronóstico es obligatorio."""
+        forecasts, uv = await self.async_get_forecast()
+        data = MeteoChileData(forecasts=forecasts, uv=uv)
+        try:
+            data.stations, data.stations_updated = await self.async_get_current()
+        except MeteoChileError as err:
+            _LOGGER.debug("Sin condición actual: %s", err)
         return data

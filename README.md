@@ -90,7 +90,7 @@ Si no ves la tarjeta después de actualizar, recarga el navegador sin caché (Ct
 - El pronóstico es por **localidad de la DMC**, no por comuna exacta. Elige la localidad más cercana a tu comuna.
 - La "temperatura actual" viene de la estación elegida, no de la localidad del pronóstico.
 - No hay montos de precipitación, probabilidad de lluvia ni pronóstico por hora: la DMC no los publica en estos archivos.
-- Actualiza cada 20 minutos. El pronóstico lo redacta la DMC una o dos veces al día. Las observaciones son horarias.
+- La condición actual se revisa cada 5 minutos: la DMC publica una observación por hora por estación (unos 12 minutos después de la hora), así que el dato nuevo aparece en Home Assistant poco después de publicado. El pronóstico se revisa cada 30 minutos; la DMC lo redacta una o dos veces al día.
 
 ## Publicar en HACS
 

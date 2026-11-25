@@ -188,3 +188,45 @@ async def test_card_registered(hass, mock_dmc, hass_client):
     assert resp.status == 200
     body = await resp.text()
     assert "registry.define(\"meteochile-card\", MeteoChileCard)" in body
+
+
+async def test_refresh_cadence(hass, mock_dmc):
+    """La condición actual se pide en cada ciclo; el pronóstico cada 30 min."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    def calls(url):
+        return sum(1 for call in mock_dmc.mock_calls if str(call[1]) == url)
+
+    assert calls(URL_FORECAST) == 1 and calls(URL_CURRENT) == 1
+
+    coordinator = entry.runtime_data
+    for _ in range(3):  # 3 ciclos de 5 min
+        await coordinator.async_refresh()
+    assert calls(URL_CURRENT) == 4
+    assert calls(URL_FORECAST) == 1
+
+    coordinator._forecast_fetched -= 31 * 60  # simula que pasaron 31 min
+    await coordinator.async_refresh()
+    assert calls(URL_FORECAST) == 2
+    assert calls(URL_CURRENT) == 5
+
+
+async def test_current_failure_keeps_previous(hass, mock_dmc):
+    entry = _entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    mock_dmc.clear_requests()
+    from .conftest import load
+
+    mock_dmc.get(URL_FORECAST, content=load("pronostico.js"))
+    mock_dmc.get(URL_UV, content=load("pronostico_radiacion_uv.js"))
+    mock_dmc.get(URL_CURRENT, status=500)
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    state = hass.states.get("weather.meteochile_colina")
+    assert float(state.attributes["temperature"]) == 15
